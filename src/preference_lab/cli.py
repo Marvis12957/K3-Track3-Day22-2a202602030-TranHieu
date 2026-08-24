@@ -36,9 +36,9 @@ def validate(data: Path) -> None:
 
 @app.command()
 def evaluate(
-    config: Annotated[
-        Path, typer.Option("--config", "-c", help="Path to YAML config file")
-    ] = Path("configs/local.yaml"),
+    config: Annotated[Path, typer.Option("--config", "-c", help="Path to YAML config file")] = Path(
+        "configs/local.yaml"
+    ),
 ) -> None:
     cfg = load_config(config)
     examples = load_jsonl(cfg["paths"]["train_data"])
@@ -48,6 +48,35 @@ def evaluate(
     metrics = {"pairwise_accuracy": pairwise_accuracy(examples, chosen_scores, rejected_scores)}
     out = write_metrics(metrics, cfg["paths"]["output_dir"])
     print(f"[green]Wrote metrics to {out}[/green]")
+
+
+from .trainers import PreferenceTrainer, TrainingConfig
+
+
+@app.command()
+def train(
+    config: Annotated[Path, typer.Option("--config", "-c", help="Path to YAML config file")] = Path(
+        "configs/local.yaml"
+    ),
+) -> None:
+    cfg = load_config(config)
+    train_cfg = cfg.get("training", {})
+    training_config = TrainingConfig(
+        method=train_cfg.get("method", "dpo"),
+        beta=train_cfg.get("beta", 0.1),
+        lambda_orpo=train_cfg.get("lambda_orpo", 0.1),
+        max_length=train_cfg.get("max_length", 512),
+        batch_size=train_cfg.get("batch_size", 2),
+    )
+    trainer = PreferenceTrainer(training_config)
+    print(f"[bold blue]Starting training with method: {training_config.method}...[/bold blue]")
+    metrics = trainer.train()
+    out_dir = Path(cfg["paths"]["output_dir"])
+    out = write_metrics({k: v for k, v in metrics.items() if isinstance(v, (int, float))}, out_dir)
+    print(
+        f"[green]Training finished! Final loss: {metrics['final_loss']:.4f}, Mean loss: {metrics['mean_loss']:.4f}[/green]"
+    )
+    print(f"[green]Saved metrics to {out}[/green]")
 
 
 if __name__ == "__main__":

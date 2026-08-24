@@ -1,4 +1,4 @@
-.PHONY: setup test lint typecheck format run-eval clean
+.PHONY: setup test lint typecheck format run-eval train clean
 setup:
 	pip install -e '.[dev]'
 test:
@@ -11,5 +11,7 @@ format:
 	ruff format src tests
 run-eval:
 	pref-lab evaluate --config configs/local.yaml
+train:
+	pref-lab train --config configs/local.yaml
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache outputs
