@@ -9,3 +9,6 @@ wandb/
 *.safetensors
 *.bin
 .env
+*.egg-info/
+.DS_Store
+*.egg-info/
