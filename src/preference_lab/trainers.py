@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from .losses import dpo_loss, orpo_loss
+from .losses import dpo_loss, kto_loss, orpo_loss
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +16,14 @@ class TrainingConfig:
     method: str
     beta: float = 0.1
     lambda_orpo: float = 0.1
+    desirable_weight: float = 1.0
+    undesirable_weight: float = 1.0
     max_length: int = 512
     batch_size: int = 2
 
 
 class PreferenceTrainer:
-    """Interface for DPO/ORPO training implementations."""
+    """Interface for DPO/ORPO/KTO training implementations."""
 
     def __init__(self, config: TrainingConfig) -> None:
         self.config = config
@@ -58,6 +60,18 @@ class PreferenceTrainer:
                     policy_chosen_logps,
                     policy_rejected_logps,
                     lambda_orpo=self.config.lambda_orpo,
+                )
+            elif self.config.method == "kto":
+                ref_chosen_logps = rng.uniform(-1.5, -0.2, size=self.config.batch_size)
+                ref_rejected_logps = rng.uniform(-2.0, -0.5, size=self.config.batch_size)
+                loss = kto_loss(
+                    policy_chosen_logps,
+                    policy_rejected_logps,
+                    ref_chosen_logps,
+                    ref_rejected_logps,
+                    beta=self.config.beta,
+                    desirable_weight=self.config.desirable_weight,
+                    undesirable_weight=self.config.undesirable_weight,
                 )
             else:
                 # Mock method: return a dummy decreasing loss

@@ -49,3 +49,37 @@ def orpo_loss(
     # -log_sigmoid(log_or) = softplus(-log_or)
     or_loss = np.logaddexp(0.0, -log_or)
     return float(np.mean(sft_nll) + lambda_orpo * np.mean(or_loss))
+
+
+def kto_loss(
+    policy_chosen_logps: np.ndarray,
+    policy_rejected_logps: np.ndarray,
+    ref_chosen_logps: np.ndarray,
+    ref_rejected_logps: np.ndarray,
+    beta: float = 0.1,
+    desirable_weight: float = 1.0,
+    undesirable_weight: float = 1.0,
+) -> float:
+    """Compute Kahneman-Tversky Optimization (KTO) loss from log probabilities.
+
+    KTO aligns models based on Kahneman-Tversky prospect theory value functions.
+    L_KTO = λ_D · E[1 - σ(β(r_chosen - r_ref))] + λ_U · E[1 - σ(β(r_ref - r_rejected))]
+    where r = log π(y|x) - log π_ref(y|x).
+    """
+    chosen_kl = policy_chosen_logps - ref_chosen_logps
+    rejected_kl = policy_rejected_logps - ref_rejected_logps
+
+    # Estimate reference point (mean implicit reward)
+    ref_point = float(np.mean(np.concatenate([chosen_kl, rejected_kl])))
+
+    # Value functions: 1 - sigma(x) = sigma(-x) = exp(-logaddexp(0, x))
+    chosen_logits = beta * (chosen_kl - ref_point)
+    chosen_losses = np.exp(-np.logaddexp(0.0, chosen_logits))
+
+    rejected_logits = beta * (ref_point - rejected_kl)
+    rejected_losses = np.exp(-np.logaddexp(0.0, rejected_logits))
+
+    total = desirable_weight * np.mean(chosen_losses) + undesirable_weight * np.mean(
+        rejected_losses
+    )
+    return float(total)

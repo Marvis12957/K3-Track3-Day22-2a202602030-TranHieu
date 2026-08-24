@@ -65,6 +65,8 @@ def train(
         method=train_cfg.get("method", "dpo"),
         beta=train_cfg.get("beta", 0.1),
         lambda_orpo=train_cfg.get("lambda_orpo", 0.1),
+        desirable_weight=train_cfg.get("desirable_weight", 1.0),
+        undesirable_weight=train_cfg.get("undesirable_weight", 1.0),
         max_length=train_cfg.get("max_length", 512),
         batch_size=train_cfg.get("batch_size", 2),
     )

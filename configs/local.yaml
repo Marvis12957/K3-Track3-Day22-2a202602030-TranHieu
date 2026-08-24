@@ -3,9 +3,11 @@ paths:
   train_data: data/sample_preferences.jsonl
   output_dir: outputs
 training:
-  method: dpo  # dpo | orpo | mock
+  method: dpo  # dpo | orpo | kto | mock
   beta: 0.1
   lambda_orpo: 0.1
+  desirable_weight: 1.0
+  undesirable_weight: 1.0
   max_length: 512
   batch_size: 2
 evaluation:
