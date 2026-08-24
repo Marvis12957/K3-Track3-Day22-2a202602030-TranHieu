@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class PreferenceExample(BaseModel):
     """One preference pair for DPO/ORPO-style alignment."""
+
     prompt: str = Field(min_length=1)
     chosen: str = Field(min_length=1)
     rejected: str = Field(min_length=1)
@@ -27,6 +28,7 @@ class PreferenceExample(BaseModel):
             if norm_chosen == norm_rejected:
                 raise ValueError("chosen and rejected must differ")
             from difflib import SequenceMatcher
+
             if SequenceMatcher(None, norm_chosen, norm_rejected).ratio() > 0.95:
                 raise ValueError("chosen and rejected are near-duplicates")
         return rejected

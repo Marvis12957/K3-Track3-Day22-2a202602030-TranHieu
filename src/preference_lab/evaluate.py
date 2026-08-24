@@ -30,6 +30,7 @@ def pairwise_accuracy(
             wins += 0.5  # ties count as half-win
     return wins / len(examples)
 
+
 def write_metrics(metrics: dict[str, float], output_dir: str | Path) -> Path:
     path = Path(output_dir)
     path.mkdir(parents=True, exist_ok=True)

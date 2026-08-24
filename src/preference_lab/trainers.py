@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -21,10 +22,11 @@ class TrainingConfig:
 
 class PreferenceTrainer:
     """Interface for DPO/ORPO training implementations."""
+
     def __init__(self, config: TrainingConfig) -> None:
         self.config = config
 
-    def train(self) -> dict[str, float]:
+    def train(self) -> dict[str, Any]:
         """Train the policy using a mock CPU trainer.
 
         Simulates one epoch of training by generating random log-probabilities
@@ -62,7 +64,9 @@ class PreferenceTrainer:
                 loss = 1.0 / (batch_idx + 1)
 
             losses.append(loss)
-            logger.info("Batch %d/%d — %s loss: %.4f", batch_idx + 1, num_batches, self.config.method, loss)
+            logger.info(
+                "Batch %d/%d — %s loss: %.4f", batch_idx + 1, num_batches, self.config.method, loss
+            )
 
         metrics = {
             "final_loss": losses[-1],
