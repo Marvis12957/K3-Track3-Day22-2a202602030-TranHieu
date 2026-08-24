@@ -10,6 +10,6 @@ typecheck:
 format:
 	ruff format src tests
 run-eval:
-	pref-lab evaluate configs/local.yaml
+	pref-lab evaluate --config configs/local.yaml
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache outputs

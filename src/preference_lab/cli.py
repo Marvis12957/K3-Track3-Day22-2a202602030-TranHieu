@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 import typer  # pyrefly: ignore [missing-import]
 from rich import print  # pyrefly: ignore [missing-import]
@@ -34,7 +35,11 @@ def validate(data: Path) -> None:
 
 
 @app.command()
-def evaluate(config: Path) -> None:
+def evaluate(
+    config: Annotated[
+        Path, typer.Option("--config", "-c", help="Path to YAML config file")
+    ] = Path("configs/local.yaml"),
+) -> None:
     cfg = load_config(config)
     examples = load_jsonl(cfg["paths"]["train_data"])
     # Score responses using a deterministic text-quality scorer
