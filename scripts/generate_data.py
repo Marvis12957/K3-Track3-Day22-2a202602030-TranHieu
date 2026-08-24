@@ -27,6 +27,21 @@ Use the following examples as a style guide:
 Focus on: {focus}"""
 
 
+def _load_env_file(env_path: Path = Path(".env")) -> None:
+    """Load simple key=value pairs from .env into os.environ if not already set."""
+    if not env_path.exists():
+        return
+    with env_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            k, v = k.strip(), v.strip().strip("'\"")
+            if k and k not in os.environ:
+                os.environ[k] = v
+
+
 @app.command()
 def generate(
     count: int = 5,
@@ -34,16 +49,30 @@ def generate(
     focus: str = "technical accuracy and safety",
     output_file: Path = Path("data/synthetic_preferences.jsonl"),
     seed_file: Path = Path("data/sample_preferences.jsonl"),
-    model: str = "gpt-4o",
+    model: str | None = None,
     mock: bool = False,
 ) -> None:
-    """Generate synthetic preference pairs using OpenAI (or offline mock generator)."""
-    api_key = os.getenv("OPENAI_API_KEY")
+    """Generate synthetic preference pairs using Gemini API (or OpenAI / offline mock)."""
+    _load_env_file()
 
-    if not api_key or mock:
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+
+    if not mock and gemini_key:
+        print("[cyan]Using Gemini API endpoint with GEMINI_API_KEY...[/cyan]")
+        client = OpenAI(
+            api_key=gemini_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+        model_name = model or "gemini-2.5-flash"
+    elif not mock and openai_key:
+        print("[cyan]Using OpenAI API endpoint with OPENAI_API_KEY...[/cyan]")
+        client = OpenAI(api_key=openai_key)
+        model_name = model or "gpt-4o"
+    else:
         if not mock:
             print(
-                "[yellow]Notice: OPENAI_API_KEY not found. Running in offline mock generation mode.[/yellow]"
+                "[yellow]Notice: GEMINI_API_KEY or OPENAI_API_KEY not found in .env / environment. Running in offline mock generation mode.[/yellow]"
             )
         print(f"Generating [blue]{count}[/blue] mock pairs for domain: [green]{domain}[/green]...")
 
@@ -93,8 +122,6 @@ def generate(
         print(f"[green]Successfully added {len(valid_lines)} pairs to {output_file}[/green]")
         return
 
-    client = OpenAI(api_key=api_key)
-
     # Load some examples from seed file
     examples_str = ""
     if seed_file.exists():
@@ -102,10 +129,12 @@ def generate(
             lines = [line.strip() for line in f if line.strip()][:3]
             examples_str = "\n".join(lines)
 
-    print(f"Generating [blue]{count}[/blue] pairs for domain: [green]{domain}[/green]...")
+    print(
+        f"Generating [blue]{count}[/blue] pairs for domain: [green]{domain}[/green] using model [blue]{model_name}[/blue]..."
+    )
 
     response = client.chat.completions.create(
-        model=model,
+        model=model_name,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {

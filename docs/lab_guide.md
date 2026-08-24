@@ -4,8 +4,13 @@
 Implement robust JSONL loading. Add line-numbered error messages and duplicate checks.
 
 ## Task 1.5: (Optional) Synthetic Data Generation
-Use an LLM to expand your dataset. This teaches you how to create high-quality alignment data at scale.
+Use an LLM (Gemini or OpenAI) to expand your dataset. This teaches you how to create high-quality alignment data at scale.
 ```bash
+# Option 1: Gemini API
+export GEMINI_API_KEY=your_key
+python scripts/generate_data.py --count 10 --domain "machine learning"
+
+# Option 2: OpenAI API
 export OPENAI_API_KEY=your_key
 python scripts/generate_data.py --count 10 --domain "python coding"
 ```
