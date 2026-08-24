@@ -19,24 +19,28 @@
 - **Train/Val Ratio**: `80/20` (20 train, 4 val từ 24 examples)
 - **Leakage Prevention**: Group tất cả examples theo `prompt` field → shuffle danh sách unique prompts bằng `random.Random(42)` (deterministic) → phân bổ **toàn bộ group** vào train hoặc val. Đảm bảo không có prompt nào xuất hiện ở cả hai split. Đã verify bằng test `test_split_no_prompt_leakage` với `set.isdisjoint()`.
 
-## 2. Implementation: DPO & ORPO
+## 2. Implementation: DPO, ORPO & KTO
 
-Cả hai phương pháp đều được implement.
+Cả ba phương pháp đều được implement.
 
 ### Objective Selection
 - **Why DPO?**: DPO (Direct Preference Optimization) biến bài toán RLHF thành classification đơn giản, không cần train reward model riêng. Phù hợp cho lab vì công thức rõ ràng và dễ implement.
-- **Why ORPO?**: ORPO (Odds Ratio Preference Optimization) kết hợp SFT loss với preference penalty trong một objective duy nhất, không cần reference model. Đã implement cả hai để so sánh.
+- **Why ORPO?**: ORPO (Odds Ratio Preference Optimization) kết hợp SFT loss với preference penalty trong một objective duy nhất, không cần reference model.
+- **Why KTO?**: KTO (Kahneman-Tversky Optimization) tối ưu trực tiếp theo hàm giá trị lý thuyết triển vọng (Prospect Theory), không bắt buộc dữ liệu theo cặp chặt chẽ.
 - **Key Hyperparameters**:
-    - `beta`: `0.1` (DPO — controls deviation from reference policy)
+    - `beta`: `0.1` (DPO / KTO — controls deviation from reference policy)
     - `lambda_orpo`: `0.1` (ORPO — weight of odds-ratio penalty)
+    - `desirable_weight`: `1.0`, `undesirable_weight`: `1.0` (KTO)
 
 ### Numerical Stability
 - **Challenges**:
   - `log(σ(x))` (log-sigmoid) có thể gây underflow khi `x` rất âm, hoặc overflow khi tính `exp(-x)` với `x` rất âm
   - ORPO: `odds = p/(1-p)` khi `p → 1` gây division by near-zero; `log(odds)` khi `odds → 0` gây `-inf`
+  - KTO: `1 - σ(x)` cần tính qua `σ(-x) = exp(-logaddexp(0, x))` để tránh tràn số
 - **Solutions**:
   - **DPO**: Dùng `np.logaddexp(0, -logits)` thay vì naive `-np.log(1/(1+np.exp(-x)))`. `logaddexp` xử lý overflow/underflow tự động bằng log-sum-exp trick
   - **ORPO**: Thêm epsilon `1e-10` vào mẫu số `(1 - p + eps)` và trong `log(odds + eps)` để tránh division by zero và log(0)
+  - **KTO**: Dùng hàm mũ âm của `logaddexp` để tính sigmoid value functions một cách ổn định
 
 ## 3. Evaluation Results
 
@@ -44,7 +48,10 @@ Cả hai phương pháp đều được implement.
 | Metric | Value |
 |---|---|
 | Pairwise Accuracy | `100%` (1.0) |
-| Final Loss (Mock DPO) | N/A (mock trainer, not run in eval pipeline) |
+| DPO Mean Loss | `0.6747` |
+| ORPO Mean Loss | `1.3710` |
+| KTO Mean Loss | `0.9903` |
+| Mock Mean Loss | `0.4567` |
 
 ### Qualitative Review
 
