@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
+
 import typer
-from rich import print
 from openai import OpenAI
+from rich import print
 
 app = typer.Typer(help="Synthetic Data Generation for Preference Alignment")
 
@@ -24,6 +26,7 @@ Use the following examples as a style guide:
 
 Focus on: {focus}"""
 
+
 @app.command()
 def generate(
     count: int = 5,
@@ -32,13 +35,65 @@ def generate(
     output_file: Path = Path("data/synthetic_preferences.jsonl"),
     seed_file: Path = Path("data/sample_preferences.jsonl"),
     model: str = "gpt-4o",
+    mock: bool = False,
 ) -> None:
-    """Generate synthetic preference pairs using OpenAI."""
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    
-    if not os.getenv("OPENAI_API_KEY"):
-        print("[red]Error: OPENAI_API_KEY environment variable not set.[/red]")
-        raise typer.Exit(1)
+    """Generate synthetic preference pairs using OpenAI (or offline mock generator)."""
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key or mock:
+        if not mock:
+            print(
+                "[yellow]Notice: OPENAI_API_KEY not found. Running in offline mock generation mode.[/yellow]"
+            )
+        print(f"Generating [blue]{count}[/blue] mock pairs for domain: [green]{domain}[/green]...")
+
+        mock_templates = [
+            (
+                f"Explain the role of gradient clipping in {domain}.",
+                "Gradient clipping caps gradients during backpropagation to prevent exploding gradients in deep networks.",
+                "Gradient clipping sets all negative gradients to zero to speed up training.",
+            ),
+            (
+                f"What is early stopping in {domain}?",
+                "Early stopping halts training when validation loss stops improving, preventing the model from overfitting.",
+                "Early stopping terminates training after a fixed 10 epochs regardless of performance.",
+            ),
+            (
+                f"Why use learning rate warmup in {domain}?",
+                "Learning rate warmup gradually increases the learning rate initially, stabilizing early training steps.",
+                "Learning rate warmup makes the model train on the CPU before moving to the GPU.",
+            ),
+            (
+                f"Describe weight decay in {domain} training.",
+                "Weight decay adds an L2 penalty to the loss function, encouraging smaller weights and reducing overfitting.",
+                "Weight decay removes unused weights from the network architecture permanently.",
+            ),
+            (
+                f"What is the difference between batch size and epoch in {domain}?",
+                "Batch size is the number of samples processed per step, while an epoch is one full pass through the dataset.",
+                "Batch size and epoch are identical terms describing the total number of training iterations.",
+            ),
+        ]
+
+        valid_lines = []
+        for i in range(count):
+            prompt, chosen, rejected = mock_templates[i % len(mock_templates)]
+            item = {
+                "prompt": f"[{i + 1}] {prompt}",
+                "chosen": chosen,
+                "rejected": rejected,
+                "metadata": {"domain": domain, "rubric": "accuracy", "generator": "synthetic_mock"},
+            }
+            valid_lines.append(json.dumps(item))
+
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with output_file.open("a", encoding="utf-8") as f:
+            for line in valid_lines:
+                f.write(line + "\n")
+        print(f"[green]Successfully added {len(valid_lines)} pairs to {output_file}[/green]")
+        return
+
+    client = OpenAI(api_key=api_key)
 
     # Load some examples from seed file
     examples_str = ""
@@ -48,14 +103,17 @@ def generate(
             examples_str = "\n".join(lines)
 
     print(f"Generating [blue]{count}[/blue] pairs for domain: [green]{domain}[/green]...")
-    
+
     response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": USER_PROMPT_TEMPLATE.format(
-                count=count, domain=domain, examples=examples_str, focus=focus
-            )}
+            {
+                "role": "user",
+                "content": USER_PROMPT_TEMPLATE.format(
+                    count=count, domain=domain, examples=examples_str, focus=focus
+                ),
+            },
         ],
         temperature=0.7,
     )
@@ -86,6 +144,7 @@ def generate(
             f.write(line + "\n")
 
     print(f"[green]Successfully added {len(valid_lines)} pairs to {output_file}[/green]")
+
 
 if __name__ == "__main__":
     app()

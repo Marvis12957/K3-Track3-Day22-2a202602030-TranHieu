@@ -11,4 +11,4 @@ wandb/
 .env
 *.egg-info/
 .DS_Store
-*.egg-info/
+data/synthetic_preferences.jsonl
